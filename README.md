@@ -4,7 +4,9 @@ In this project we are using the CNN architecture based model to develop a stude
 
 To clone the repo use the code below:
 ```
-  git clone
+  git clone https://github.com/jrtrj/ImageSharpening_KD.git
 ```
 # Libraries Used
+
+# Dataset Used
 
