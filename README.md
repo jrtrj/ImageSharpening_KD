@@ -8,23 +8,23 @@ To clone the repo use the code below:
 ```
   git clone https://github.com/jrtrj/ImageSharpening_KD.git
 ```
-# Description 
+## Description 
 This project aims to enhance image sharpness in real-time video conferencing by
 designing a lightweight deep learning model. We adopt a knowledge distillation
 approach, where a high-performing ResNet-based teacher model guides a student model optimized for real-time performance. Evaluation is performed using SSIM and MOS.
 
-# Limitations
+## Limitations
 - Limitations in computational power to run and use heavy pretrained models.
 
-# Outcomes 
+## Outcomes 
 - Gained knowledge about CNN
 - Able to fine tune models
 
-# Future Scope 
+## Future Scope 
 - Integrating the student model into video conferencing pipelines to enhance live video quality.
 - Train the model more on real video conferencing image datasets
   
-# Libraries Used
+## Libraries Used
 - **`os:`** Provides a way of using operating system dependent functionality like reading or writing to the file system.
 - **`cv2:`** A comprehensive library for computer vision tasks, including image loading, processing, and manipulation.
 - **`glob:`** Finds all the pathnames matching a specified pattern, useful for listing files in directories.
@@ -41,9 +41,9 @@ approach, where a high-performing ResNet-based teacher model guides a student mo
 - **`torch.optim.lr_scheduler:`** Offers methods for adjusting the learning rate during training, such as Cosine Annealing.
 - **`matplotlib.pyplot:`** A plotting library used for creating static, interactive, and animated visualizations in Python.
   
-# Dataset Used
+## Dataset Used
   <a href="https://data.vision.ee.ethz.ch/cvl/DIV2K/" target="_blank">DIV2K</a>
-# Team Members
+## Team Members
 - <a href="https://github.com/jrtrj" target="_blank">Jerit Reji</a>
 - <a href="https://github.com/sebastian-abraham" target="_blank">Sebastian Abraham</a>
 - <a href="https://github.com/JoThePOkeMOn" target="_blank">Joel Mathew Samuel</a>
