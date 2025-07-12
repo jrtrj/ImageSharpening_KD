@@ -1,0 +1,235 @@
+\documentclass[12pt,a4paper]{article}
+
+% --- PACKAGES FOR LAYOUT AND STYLING ---
+\usepackage[margin=1in, headheight=14.5pt]{geometry} 
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{authblk}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{times}
+
+% --- PARAGRAPH FLOW OPTIMIZATION ---
+\widowpenalty=10000
+\clubpenalty=10000
+
+% --- HYPERLINK SETUP ---
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    filecolor=black,
+    urlcolor=blue, % Keep URLs blue for visibility
+    pdftitle={Image Sharpening with Knowledge Distillation},
+}
+
+% --- HEADER AND FOOTER SETUP ---
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[L]{INTEL-UNNATI AI\&ML JOURNAL}
+\cfoot{\thepage}
+
+% --- CUSTOM FOOTER FOR FIRST PAGE ---
+\fancypagestyle{firstpage}{
+  \fancyhf{}
+  \fancyfoot[L]{© Intel-unnati}
+  \fancyfoot[R]{Project Report}
+}
+
+% --- CODE LISTING STYLE ---
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.05,0.05,0.05}
+\definecolor{stringcolor}{rgb}{0.9,0.5,0.2}
+\definecolor{keywordcolor}{rgb}{0.2,0.6,1.0}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{keywordcolor},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{stringcolor},
+    basicstyle=\ttfamily\footnotesize\color{white}, 
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+% --- DOCUMENT METADATA ---
+\title{Image Sharpening using a ResNet-based Architecture and Knowledge Distillation}
+\author[1]{Jerit Reji}
+\author[1]{Joel Mathew Samuel}
+\author[1]{Sebastian Abraham}
+\affil[1]{Saintgits Group of Institutions, Kottayam, Kerala}
+\date{July 2025}
+
+\begin{document}
+
+% --- TITLE PAGE ---
+\begin{titlepage}
+    \thispagestyle{firstpage}
+    \newgeometry{margin=0.8in}
+    
+    \begin{minipage}{0.5\textwidth}
+        \flushleft \includegraphics[width=1.2in]{intel_logo.png}
+    \end{minipage}%
+    \begin{minipage}{0.5\textwidth}
+        \flushright \includegraphics[width=2.0in]{saintgits_logo.png}
+    \end{minipage}
+    
+    \vfill 
+    \centering
+    {\Huge\bfseries Image Sharpening using a ResNet-based Architecture and Knowledge Distillation \par}
+    \vspace{1.5cm} 
+    {\Large Jerit Reji, Joel Mathew Samuel, Sebastian Abraham \par}
+    \vspace{0.5cm}
+    {\large \textit{Saintgits Group of Institutions, Kottayam, Kerala}\par}
+    \vfill 
+    
+\end{titlepage}
+
+\restoregeometry
+\pagestyle{fancy} 
+
+% --- ABSTRACT ---
+\begin{abstract}
+\noindent This report details the implementation of an image sharpening system using knowledge distillation. A deep "teacher" model, based on a Residual Network (ResNet), is trained on the DIV2K dataset to restore degraded images. The training objective for this model is a composite loss function combining Structural Similarity (SSIM), Mean Squared Error (MSE), and a VGG-based Perceptual Loss. Subsequently, a smaller, computationally efficient "student" Convolutional Neural Network (CNN) is trained to mimic the teacher's output using a distillation loss. The final student model's performance is evaluated against the teacher's, demonstrating the effectiveness of transferring knowledge to a compact architecture for practical applications.
+\end{abstract}
+
+\vspace{0.5cm}
+\textbf{Keywords:} Image Sharpening, Deep Learning, Computer Vision, ResNet, Knowledge Distillation, SSIM, Perceptual Loss, PyTorch, Model Optimization, SwinIR, EDSR.
+\vspace{1cm}
+
+\section{Introduction}
+Restoring detail in images degraded by blur, noise, or downscaling is a fundamental problem in computer vision. While deep learning models can learn complex restoration transforms, state-of-the-art architectures are often too large and computationally intensive for practical deployment on consumer devices. This creates a conflict between model performance and efficiency.
+
+This project addresses this challenge by implementing a teacher-student framework based on knowledge distillation. The primary goal is to transfer the image restoration capability of a large, high-performance "teacher" network into a much smaller and faster "student" network. This approach aims to produce a final model that is both effective at image sharpening and suitable for resource-constrained environments.
+
+\newpage
+\section{Methodology for Selected Model}
+
+\subsection{Dataset and Augmentation}
+The DIV2K dataset, containing high-resolution images, was used as the basis for training. A custom data pipeline was created to generate pairs of degraded and ground-truth images on-the-fly using the \texttt{albumentations} library. The degradation transform applies a random combination of the following:
+\begin{itemize}
+    \item \textbf{Blur:} Gaussian or Motion blur, with a kernel size between 3 and 7.
+    \item \textbf{Downscaling:} Resizing the image to between 60\% and 80\% of its original size.
+    \item \textbf{Noise:} Adding Gaussian noise with a variance between 10 and 50.
+\end{itemize}
+
+\subsection{Final Model Architecture}
+The core of the finalized project is a teacher-student framework using a ResNet-based teacher.
+
+\subsubsection{Teacher Model: ResNetSharpen}
+The teacher is a ResNet-inspired architecture designed for high-capacity learning. It features an input convolution layer mapping 3 to 64 channels, followed by 8 residual blocks, and an output convolution layer mapping 64 back to 3 channels. A global residual connection adds the input image to the network's output, allowing the model to focus on learning the sharpening details rather than reconstructing the entire image.
+
+\subsubsection{Student Model: StudentCNN}
+The student is a lightweight CNN with minimal layers, designed for fast inference. It consists of two 3x3 convolutional layers and also employs a global residual connection.
+
+\subsection{Final Loss Functions}
+\subsubsection{Teacher Training Loss}
+The teacher model is trained using a composite loss function to balance pixel accuracy with perceptual quality. It is a weighted sum of an SSIM/MSE loss and a VGG-based Perceptual Loss, with weights of \texttt{ssim\_w=0.8} and \texttt{perceptual\_w=0.01}. The Perceptual Loss compares high-level features from a pre-trained VGG19 network to better align with human visual assessment.
+\begin{lstlisting}[language=Python, caption={Composite Loss for Teacher Training}]
+class TotalLoss(nn.Module):
+    def __init__(self, ssim_w=0.8, perceptual_w=0.01):
+        super(TotalLoss, self).__init__()
+        self.ssim_w = ssim_w
+        self.perceptual_w = perceptual_w
+        self.mse = nn.MSELoss()
+        self.ssim = lambda p, t: 1 - ssim_loss(p, t, data_range=1.0)
+        self.perceptual = VGGPerceptualLoss()
+
+    def forward(self, pred, target):
+        ssim_mse_loss = self.ssim_w * self.ssim(pred, target) + \
+                        (1 - self.ssim_w) * self.mse(pred, target)
+        perceptual_loss = self.perceptual(pred, target)
+        return ssim_mse_loss + self.perceptual_w * perceptual_loss
+\end{lstlisting}
+
+
+\subsubsection{Knowledge Distillation Loss}
+The student model is trained using a distillation loss. This loss is a weighted average of two components: the mean squared error between the student's and the teacher's outputs, and the mean squared error between the student's output and the ground-truth image. The weighting factor \texttt{alpha} is set to 0.75, placing more emphasis on mimicking the teacher.
+\begin{lstlisting}[language=Python, caption={Knowledge Distillation Loss Function}]
+def distillation_loss(s_out, t_out, target, alpha=0.75):
+    loss_teacher = nn.MSELoss()(s_out, t_out)
+    loss_gt = nn.MSELoss()(s_out, target)
+    return alpha * loss_teacher + (1 - alpha) * loss_gt
+\end{lstlisting}
+
+
+\newpage
+\section{Final Results and Discussion}
+The ResNet-based teacher and corresponding student model were trained using the Adam optimizer with a learning rate of 1e-4 and a Cosine Annealing scheduler. The final performance was evaluated on a held-out validation set using the Structural Similarity Index (SSIM) as the primary metric.
+
+The final quantitative results for the selected models are as follows:
+\begin{itemize}
+    \item \textbf{Final Teacher Model SSIM:} 0.6312
+    \item \textbf{Final Distilled Student SSIM:} 0.6061
+\end{itemize}
+
+The distilled student model achieves over 96\% of the teacher model's performance in terms of SSIM score. This demonstrates a highly successful knowledge transfer, as the significantly smaller student network retains the vast majority of the larger model's capability. Qualitative analysis, shown in Figure \ref{fig:visual_results}, supports this conclusion. The images produced by the student model show a clear visual improvement over the degraded inputs and are nearly indistinguishable from those produced by the much larger teacher model.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figure_visual_results.png}
+    \caption{Visual comparison of model outputs on the validation set. Each row shows the degraded input, the student's sharpened output (with SSIM score), the teacher's output, and the original ground truth.}
+    \label{fig:visual_results}
+\end{figure}
+
+\newpage
+\section{Alternate Model Evaluations}
+During development, several architectures were evaluated as potential teachers before finalizing the ResNet-based approach. This section summarizes the findings from those explorations.
+
+\subsection{Evaluation of DnCNN}
+An initial evaluation was performed using a DnCNN (Denoising Convolutional Neural Network) architecture as the teacher.\footnote{The code for this experiment is available at: \href{https://github.com/jrtrj/ImageSharpening_KD/tree/dcnn}{github.com/jrtrj/ImageSharpening\_KD/tree/dcnn}} The model was trained using only Mean Squared Error (MSE) as the loss function. The DnCNN teacher achieved a final average SSIM of 0.7327, and its distilled student reached an even higher SSIM of 0.7386. Despite these strong quantitative scores, this approach was abandoned. MSE loss is known to produce overly smooth images that lack fine textural detail, and the high SSIM score did not correlate with superior visual quality. This highlighted the necessity of a loss function that better captures human perception.
+
+\subsection{Evaluation of EDSR as Teacher}
+The EDSR (Enhanced Deep Residual Networks) model, a popular architecture for super-resolution, was also evaluated as a teacher.\footnote{The code for this experiment is available at: \href{https://github.com/jrtrj/ImageSharpening_KD/blob/edsr/image_sharpening_using_edsr.ipynb}{github.com/jrtrj/ImageSharpening\_KD/blob/edsr}} The \texttt{edsr\_baseline\_x4} pre-trained model was used. The distilled student achieved a final SSIM score of only 0.4514. This result was significantly lower than that of other tested approaches and was deemed insufficient for the project's goals. The primary challenges were attributed to GPU memory constraints and the difficulty of distilling knowledge from a model highly specialized for super-resolution to a more general sharpening task.
+
+\subsection{Evaluation of SwinIR as Teacher}
+Finally, we explored using SwinIR (Swin Transformer for Image Restoration), a state-of-the-art transformer-based model, as the teacher.\footnote{The code for this experiment is available at: \href{https://github.com/jrtrj/ImageSharpening_KD/tree/SwinIR}{github.com/jrtrj/ImageSharpening\_KD/tree/SwinIR}} While this pipeline showed strong initial promise in terms of SSIM, it was ultimately impractical due to its significant computational demands. The process suffered from severe memory bottlenecks and prohibitively slow training cycles, which prevented the completion of a full training run. This experience solidified the decision to use a more balanced architecture.
+
+\newpage
+\section{Conclusion}
+This project successfully developed and validated a knowledge distillation pipeline for image sharpening. The research journey involved a systematic evaluation of multiple advanced architectures—including DnCNN, EDSR, and SwinIR—as potential teacher models. This exploration revealed critical trade-offs between quantitative performance metrics (like SSIM), perceived visual quality, and computational feasibility. While architectures like SwinIR were powerful, they proved too resource-intensive for practical training. Conversely, a simple DnCNN trained on MSE produced high SSIM scores but lacked the visual fidelity essential for a high-quality restoration task.
+
+The final architecture, a ResNet-based teacher trained with a composite perceptual loss, was chosen as the optimal solution. It provided the best balance of high-quality visual results and manageable training requirements. The knowledge from this teacher was successfully distilled into a lightweight student CNN, which recovered 96\% of the teacher’s performance (achieving a 0.6061 SSIM score) with a significantly smaller footprint. The project not only demonstrates a successful model compression but also underscores the importance of a pragmatic, iterative approach to model and loss function selection to achieve both high quality and practical utility in real-world applications.
+
+\newpage
+\section*{Acknowledgements}
+We would like to express our sincere gratitude to the Intel® Unnati program for providing the opportunity and framework for this project. We also extend our thanks to our institution, Saintgits Group of Institutions, for providing the necessary resources and academic support throughout the duration of this work.
+
+\newpage
+% --- REFERENCES SECTION ---
+\hrule
+\vspace{0.5cm}
+\begin{thebibliography}{9}
+    \bibitem{he2016deep}
+    K. He, X. Zhang, S. Ren, and J. Sun,
+    \textit{Deep residual learning for image recognition},
+    in Proceedings of the IEEE conference on computer vision and pattern recognition, 2016.
+    
+    \bibitem{hinton2015distilling}
+    G. Hinton, O. Vinyals, and J. Dean,
+    \textit{Distilling the knowledge in a neural network},
+    arXiv preprint arXiv:1503.02531, 2015.
+
+    \bibitem{paszke2019pytorch}
+    A. Paszke et al.,
+    \textit{PyTorch: An Imperative Style, High-Performance Deep Learning Library},
+    in Advances in Neural Information Processing Systems, 2019.
+
+\end{thebibliography}
+
+\end{document}
