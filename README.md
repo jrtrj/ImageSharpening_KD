@@ -11,5 +11,5 @@ To clone the repo use the code below:
 # Dataset Used
 
 # Team Members
-- Jerit Reji
+- <a href="https://github.com/jrtrj" target="_blank">Jerit Reji</a>
 
