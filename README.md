@@ -10,3 +10,6 @@ To clone the repo use the code below:
 
 # Dataset Used
 
+# Team Members
+- Jerit Reji
+
