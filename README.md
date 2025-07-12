@@ -24,7 +24,7 @@ dent model optimized for real-time performance. Evaluation is performed using SS
 - Train the model more on real video conferencing image datasets
   
 # Libraries Used
-- os: Provides a way of using operating system dependent functionality like reading or writing to the file system.
+- `os:` Provides a way of using operating system dependent functionality like reading or writing to the file system.
 - cv2: A comprehensive library for computer vision tasks, including image loading, processing, and manipulation.
 - glob: Finds all the pathnames matching a specified pattern, useful for listing files in directories.
 - numpy: The fundamental package for numerical computation in Python, providing powerful array objects and mathematical functions.
