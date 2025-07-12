@@ -21,7 +21,7 @@
     linkcolor=black,
     citecolor=black,
     filecolor=black,
-    urlcolor=blue,
+    urlcolor=blue, % Keep URLs blue for visibility
     pdftitle={Image Sharpening with Knowledge Distillation},
 }
 
@@ -29,8 +29,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \renewcommand{\headrulewidth}{0pt}
-\fancyhead[L]{INTEL-UNNATI AIML JOURNAL}
-\fancyhead[R]{Code:IUCP-2024}
+\fancyhead[L]{INTEL-UNNATI AI\&ML JOURNAL}
 \cfoot{\thepage}
 
 % --- CUSTOM FOOTER FOR FIRST PAGE ---
@@ -106,30 +105,17 @@
 
 % --- ABSTRACT ---
 \begin{abstract}
-\noindent This report details the implementation of an image sharpening system using knowledge distillation. A deep "teacher" model, based on a Residual Network (ResNet), is trained on the DIV2K dataset to restore degraded images. The training objective for this model is a composite loss function combining Structural Similarity (SSIM), Mean Squared Error (MSE), and a VGG-based Perceptual Loss. Subsequently, a smaller, computationally efficient "student" Convolutional Neural Network (CNN), built with depthwise separable convolutions, is trained to mimic the teacher's output using a distillation loss. The final student model's performance is evaluated against the teacher's, demonstrating the effectiveness of transferring knowledge to a compact architecture for practical applications.
+\noindent This report details the implementation of an image sharpening system using knowledge distillation. A deep "teacher" model, based on a Residual Network (ResNet), is trained on the DIV2K dataset to restore degraded images. The training objective for this model is a composite loss function combining Structural Similarity (SSIM), Mean Squared Error (MSE), and a VGG-based Perceptual Loss. Subsequently, a smaller, computationally efficient "student" Convolutional Neural Network (CNN) is trained to mimic the teacher's output using a distillation loss. The final student model's performance is evaluated against the teacher's, demonstrating the effectiveness of transferring knowledge to a compact architecture for practical applications.
 \end{abstract}
 
 \vspace{0.5cm}
-\textbf{Keywords:} Image Sharpening, Deep Learning, Computer Vision, ResNet, Knowledge Distillation, SSIM, Perceptual Loss, PyTorch, Depthwise Separable Convolution.
+\textbf{Keywords:} Image Sharpening, Deep Learning, Computer Vision, ResNet, Knowledge Distillation, SSIM, Perceptual Loss, PyTorch, Model Optimization.
 \vspace{1cm}
 
 \section{Introduction}
 Restoring detail in images degraded by blur, noise, or downscaling is a fundamental problem in computer vision. While deep learning models can learn complex restoration transforms, state-of-the-art architectures are often too large and computationally intensive for practical deployment on consumer devices. This creates a conflict between model performance and efficiency.
 
 This project addresses this challenge by implementing a teacher-student framework based on knowledge distillation. The primary goal is to transfer the image restoration capability of a large, high-performance "teacher" network into a much smaller and faster "student" network. This approach aims to produce a final model that is both effective at image sharpening and suitable for resource-constrained environments.
-
-\section{Libraries Used}
-The implementation of this project relies on several key Python libraries for deep learning, image processing, and data handling. The primary packages used are listed below.
-\begin{verbatim}
-torch
-torchvision
-pytorch-msssim
-albumentations
-opencv-python
-scikit-image
-numpy
-matplotlib
-\end{verbatim}
 
 \newpage
 \section{Methodology}
@@ -146,114 +132,96 @@ The DIV2K dataset, containing high-resolution images, was used as the basis for 
 The core of the project is a teacher-student framework.
 
 \subsubsection{Teacher Model: ResNetSharpen}
-The teacher is a ResNet architecture designed for high-capacity learning. It features an input convolution, 8 residual blocks, and an output convolution. The residual connection is applied before the final activation within each block. A global residual connection adds the input image to the network's output, allowing the model to focus on learning the sharpening details.
+The teacher is a ResNet-inspired architecture designed for high-capacity learning. It features an input convolution layer mapping 3 to 64 channels, followed by 8 residual blocks, and an output convolution layer mapping 64 back to 3 channels. A global residual connection adds the input image to the network's output, allowing the model to focus on learning the sharpening details rather than reconstructing the entire image.
 
-\begin{lstlisting}[language=Python, caption={Updated ResidualBlock for Teacher Model}]
-class ResidualBlock(nn.Module):
-    def __init__(self, channels):
-        super(ResidualBlock, self).__init__()
-        self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm2d(channels)
-        self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
-        self.bn2 = nn.BatchNorm2d(channels)
+\begin{lstlisting}[language=Python, caption={ResNetSharpen Teacher Model Architecture}]
+class ResNetSharpen(nn.Module):
+    def __init__(self, num_blocks=8):
+        super(ResNetSharpen, self).__init__()
+        self.conv_in = nn.Conv2d(3, 64, 3, 1, 1)
+        self.residual_layers = nn.Sequential(*[ResidualBlock(64) for _ in range(num_blocks)])
+        self.conv_out = nn.Conv2d(64, 3, 3, 1, 1)
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
-        out = self.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
-        return self.relu(x + out)
+        identity = x
+        out = self.relu(self.conv_in(x))
+        out = self.residual_layers(out)
+        out = self.conv_out(out)
+        return identity + out
 \end{lstlisting}
 
 \subsubsection{Student Model: StudentCNN}
-The student model is an efficient CNN designed for fast inference. Its core components are blocks built from **depthwise separable convolutions**, which significantly reduce the number of parameters and computational cost compared to standard convolutions. This is achieved by splitting the convolution into two steps: a depthwise step that applies a single filter per input channel, and a pointwise step (a 1x1 convolution) that combines the outputs.
+The student is a lightweight CNN with minimal layers, designed for fast inference. It consists of two 3x3 convolutional layers and also employs a global residual connection.
 
-\begin{lstlisting}[language=Python, caption={Depthwise Separable Convolution Module}]
-class DepthwiseSeparableConv(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super().__init__()
-        self.depthwise = nn.Conv2d(in_channels, in_channels, 3, padding=1, groups=in_channels)
-        self.pointwise = nn.Conv2d(in_channels, out_channels, 1)
-        self.act = nn.ReLU(inplace=True)
-
-    def forward(self, x):
-        return self.act(self.pointwise(self.depthwise(x)))
-\end{lstlisting}
-
-These efficient convolutions are used in a `StudentBlock` with a residual connection. The final `StudentCNN` consists of an entry convolution, three stacked `StudentBlock` modules, and an exit convolution, all wrapped in a global residual connection.
-
-\begin{lstlisting}[language=Python, caption={Updated StudentCNN Architecture}]
-class StudentBlock(nn.Module):
-    def __init__(self, channels):
-        super().__init__()
-        self.conv1 = DepthwiseSeparableConv(channels, channels)
-        self.conv2 = DepthwiseSeparableConv(channels, channels)
-
-    def forward(self, x):
-        return x + self.conv2(self.conv1(x))
-
+\begin{lstlisting}[language=Python, caption={StudentCNN Architecture}]
 class StudentCNN(nn.Module):
     def __init__(self):
-        super().__init__()
-        self.entry = nn.Conv2d(3, 32, kernel_size=3, padding=1)
-        self.relu = nn.ReLU(inplace=True)
-        self.blocks = nn.Sequential(
-            StudentBlock(32),
-            StudentBlock(32),
-            StudentBlock(32)
+        super(StudentCNN, self).__init__()
+        self.body = nn.Sequential(
+            nn.Conv2d(3, 32, 3, 1, 1), 
+            nn.ReLU(True), 
+            nn.Conv2d(32, 32, 3, 1, 1), 
+            nn.ReLU(True)
         )
-        self.exit = nn.Conv2d(32, 3, kernel_size=3, padding=1)
-
-    def forward(self, x):
-        out = self.relu(self.entry(x))
-        out = self.blocks(out)
-        out = self.exit(out)
-        return x + out
+    def forward(self, x): 
+        return x + self.body(x)
 \end{lstlisting}
 
 \subsection{Loss Functions}
-The loss functions remain consistent with the project's goal of balancing perceptual and pixel-level accuracy. The teacher is trained with a composite loss (`TotalLoss`), and the student is trained with `distillation_loss`.
+\subsubsection{Teacher Training Loss}
+The teacher model is trained using a composite loss function to balance pixel accuracy with perceptual quality. It is a weighted sum of an SSIM/MSE loss and a VGG-based Perceptual Loss, with weights of `ssim_w=0.8` and `perceptual_w=0.01`. The Perceptual Loss compares high-level features from a pre-trained VGG19 network to better align with human visual assessment.
+
+\subsubsection{Knowledge Distillation Loss}
+The student model is trained using a distillation loss. This loss is a weighted average of two components: the mean squared error between the student's and the teacher's outputs, and the mean squared error between the student's output and the ground-truth image. The weighting factor `alpha` is set to 0.75, placing more emphasis on mimicking the teacher.
+\begin{lstlisting}[language=Python, caption={Knowledge Distillation Loss Function}]
+def distillation_loss(s_out, t_out, target, alpha=0.75):
+    loss_teacher = nn.MSELoss()(s_out, t_out)
+    loss_gt = nn.MSELoss()(s_out, target)
+    return alpha * loss_teacher + (1 - alpha) * loss_gt
+\end{lstlisting}
 
 \newpage
 \section{Results and Discussion}
-Both models were trained for 20 epochs using the Adam optimizer (learning rate 1e-4) with a Cosine Annealing scheduler. The performance was evaluated on a held-out validation set using the SSIM metric.
+Both the teacher and student models were trained for 20 epochs using the Adam optimizer with a learning rate of 1e-4 and a Cosine Annealing scheduler. The final performance was evaluated on a held-out validation set using the Structural Similarity Index (SSIM) as the primary metric.
 
-The final quantitative results from the updated models are:
+The final quantitative results are as follows:
 \begin{itemize}
-    \item \textbf{Final Teacher Model SSIM:} 0.6344
-    \item \textbf{Final Distilled Student SSIM:} 0.6133
+    \item \textbf{Final Teacher Model SSIM:} 0.6312
+    \item \textbf{Final Distilled Student SSIM:} 0.6061
 \end{itemize}
 
-The distilled student model, built with efficient depthwise separable convolutions, achieves **96.7\%** of the teacher model's performance. This result is a strong validation of the knowledge distillation process, showing that the performance of a large, complex network can be successfully transferred to a highly optimized, lightweight architecture with minimal degradation in quality.
+The distilled student model achieves over 96\% of the teacher model's performance in terms of SSIM score. This demonstrates a highly successful knowledge transfer, as the significantly smaller student network retains the vast majority of the larger model's capability.
 
-Qualitative analysis, presented in Figure \ref{fig:visual_results}, visually confirms these findings. The student model's output demonstrates significant restoration of detail and is visually comparable to the teacher's output.
+Qualitative analysis, shown in Figure \ref{fig:visual_results}, supports this conclusion. The images produced by the student model show a clear visual improvement over the degraded inputs and are nearly indistinguishable from those produced by the much larger teacher model.
 
 \begin{figure}[htbp]
     \centering
-    % USER ACTION: Make sure to replace this with a new screenshot from your latest notebook.
     \includegraphics[width=\textwidth]{figure_visual_results.png}
     \caption{Visual comparison of model outputs on the validation set. Each row shows the degraded input, the student's sharpened output (with SSIM score), the teacher's output, and the original ground truth.}
     \label{fig:visual_results}
 \end{figure}
 
 \newpage
-\section{Conclusion}
-This project successfully developed and evaluated an image sharpening system using knowledge distillation. A high-capacity ResNet teacher model was trained, and its knowledge was transferred to a lightweight student CNN composed of depthwise separable convolutions. The final student model achieved an SSIM of **0.6133**, recovering 96.7\% of the teacher model's performance (0.6344 SSIM) with a substantially more efficient architecture.
+\section{Model Observations}
+During development, an alternative teacher architecture based on DnCNN (Denoising Convolutional Neural Network) was evaluated. This model was trained for 10 epochs using only Mean Squared Error (MSE) as the loss function. The implementation for this approach is publicly available on GitHub.\footnote{\href{https://github.com/jrtrj/ImageSharpening_KD/tree/dcnn}{https://github.com/jrtrj/ImageSharpening\_KD/tree/dcnn}}
 
-The results confirm that knowledge distillation, when paired with efficient model design, is a highly effective strategy for creating deployable computer vision models that balance performance with computational cost.
+\subsubsection{DnCNN Performance}
+The DnCNN-based teacher achieved a final average SSIM of 0.7327 on the validation set. The student model trained via distillation from this teacher achieved an SSIM of 0.7386. Quantitatively, these SSIM scores are higher than those achieved by the ResNet-based models.
+
+\subsubsection{Limitations and Justification for ResNet}
+Despite the higher SSIM scores, the DnCNN approach was not selected for the final project. The primary limitation was its reliance solely on MSE for training. MSE optimizes for pixel-wise average error, which is known to often produce overly smooth images and does not reliably correlate with human perception of image quality.
+
+The `ResNetSharpen` model was ultimately chosen for its more sophisticated training objective. Its composite loss function, incorporating a VGG-based Perceptual Loss, is specifically designed to generate results that are more visually plausible to a human observer. For image restoration tasks, prioritizing perceptual quality over a singular numerical metric like SSIM often yields more desirable results. Therefore, the ResNet-based approach was deemed superior for the project's goal of producing visually appealing sharpened images.
 
 \newpage
-% --- GITHUB AND ACKNOWLEDGMENTS ---
-\section*{GitHub Repository}
-The complete source code for this project, including training notebooks and model implementations, is publicly available on GitHub at the following repository:
-\url{https://github.com/jrtrj/ImageSharpening_KD/}
+\section{Conclusion}
+This project successfully implemented a knowledge distillation pipeline for image sharpening. After evaluating multiple architectures, a high-capacity, ResNet-based teacher model was selected and trained on a composite loss function to prioritize perceptual quality. Its knowledge was then effectively transferred to a lightweight student CNN. The final student model achieved an SSIM of 0.6061, recovering 96\% of the teacher model's performance (0.6312 SSIM) with a substantially smaller architecture.
 
-\vspace{1cm}
+The results confirm that knowledge distillation is a highly effective and practical strategy for model compression in computer vision. It allows for the creation of efficient, deployable models for tasks like image restoration without a significant compromise in output quality.
 
-\section*{Acknowledgments}
-We would like to express our sincere gratitude to our project mentor, Dr. Anju Pratap, for her invaluable guidance, constant support, and insightful feedback throughout the duration of this research. Her expertise was instrumental in shaping the direction of this work. We are also deeply indebted to our college, Saintgits College of Engineering and Technology, for providing the necessary resources and academic environment to facilitate this project.
-
+\newpage
 % --- REFERENCES SECTION ---
-\vspace{2cm}
 \hrule
 \vspace{0.5cm}
 \begin{thebibliography}{9}
