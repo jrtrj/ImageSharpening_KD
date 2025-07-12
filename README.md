@@ -11,8 +11,7 @@ To clone the repo use the code below:
 # Description 
 This project aims to enhance image sharpness in real-time video conferencing by
 designing a lightweight deep learning model. We adopt a knowledge distillation
-approach, where a high-performing ResNet-based teacher model guides a stu-
-dent model optimized for real-time performance. Evaluation is performed using SSIM and MOS.
+approach, where a high-performing ResNet-based teacher model guides a student model optimized for real-time performance. Evaluation is performed using SSIM and MOS.
 
 # Limitations
 - Limitations in computational power to run and use heavy pretrained models.
